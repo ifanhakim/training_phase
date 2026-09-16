@@ -1,1 +1,8 @@
 .env
+faqs_extend_no_split.jsonl
+hospitals_prod.json
+
+/__pycache__
+/production_rag
+/chroma_db
+/typesense-data
