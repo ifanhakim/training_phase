@@ -1,165 +1,265 @@
-# Production RAG
+# Training Project – LangChain, RAG, dan AI Agent
 
-A lightweight retrieval-augmented generation (RAG) command-line chatbot for answering academic administration questions from the **2026 Final Project and Graduation Judicium Guide** of Universitas Nahdlatul Ulama Yogyakarta (UNU Yogyakarta).
+Repositori ini berisi berbagai contoh implementasi AI dan retrieval-augmented generation (RAG) berbasis Python. Fokus utama proyek adalah eksperimen pencarian semantik, pengolahan dokumen, penggunaan model OpenRouter, serta agent berbasis LangChain dan LangGraph.
 
-The application uses ChromaDB for persistent vector storage, OpenRouter for embeddings and chat completions, and a local plain-text knowledge base, run it from your terminal.
+Proyek ini tidak hanya berisi satu aplikasi saja, melainkan beberapa script dengan tujuan yang berbeda, seperti:
 
-> **Language note:** The implementation is intended to be used in Indonesian. The system prompt, user questions, retrieved academic content, chatbot responses, and most runtime messages are in Indonesian. This README is written in English for technical documentation.
+- RAG dengan ChromaDB
+- RAG dengan Typesense + LangChain
+- Agent pencarian rumah sakit berbasis LangGraph
+- Prompt chaining dan self-consistency
+- Pembuatan knowledge base otomatis dari dokumen
+- Notebook eksperimen LangChain dan reasoning tanpa LangChain
 
-## Features
+## Struktur direktori
 
-- Loads `.txt` documents from `knowledge_base/`.
-- Splits documents into overlapping text chunks.
-- Generates embeddings through the OpenRouter-compatible OpenAI API.
-- Stores embeddings and metadata in a persistent ChromaDB collection.
-- Translates and clarifies user questions before semantic retrieval.
-- Retrieves the three most relevant chunks for each question.
-- Generates answers using the retrieved context.
-- Preserves a compact conversation history between questions.
-- Automatically indexes the knowledge base when the collection is empty.
+```text
+training/
+├── .env                     # konfigurasi environment lokal (tidak untuk di-commit)
+├── .gitignore
+├── LICENSE
+├── README.md
+├── chaining_langchain-generate_knowledge.py
+├── create_agent_langchain-self_consistency_prompt.py
+├── create_react_agent_langchain.py
+├── faqs_extend_no_split.jsonl
+├── hospitals_prod.json
+├── invoke_langchain.ipynb
+├── knowledge_base/
+│   └── PANDUAN_TUGAS_AKHIR_DAN_YUDISIUM_2026.txt
+├── no_langchain-cot.ipynb
+├── production_rag/          # virtual environment lokal
+├── rag_chromadb.py
+├── rag_typesense_langchain.py
+├── small_project.py
+├── typesense-data/          # data local Typesense
+├── workflow_agent_langgraph.py
+├── chroma_db/               # data local ChromaDB
+└── __pycache__/             # cache Python lokal
+```
 
-## Requirements
+## Script utama yang ada
 
-- Windows, macOS, or Linux
-- Python 3.9 or newer
-- An OpenRouter API key
-- Internet access for embedding and chat-completion requests
+### 1. `rag_chromadb.py`
+Script RAG sederhana dengan:
 
-## Installation
+- ChromaDB sebagai vector database
+- OpenRouter untuk embedding dan chat completion
+- `knowledge_base/` sebagai sumber dokumen
+- Chat interaktif di terminal
 
-From the project root, create and activate a virtual environment:
+### 2. `rag_typesense_langchain.py`
+Implementasi RAG dengan:
 
-### Windows PowerShell
+- Typesense sebagai vector store
+- LangChain Core dan ChatOpenAI
+- OpenRouter sebagai penyedia model
+- `knowledge_base` untuk indexing dan retrieval
+
+### 3. `small_project.py`
+Contoh agent berbasis LangGraph yang bekerja dengan data rumah sakit dan Typesense:
+
+- indexing `hospitals_prod.json`
+- pencarian rumah sakit melalui tool
+- agent memilih tool berdasarkan pertanyaan user
+
+### 4. Script agen dan workflow lainnya
+
+- `create_agent_langchain-self_consistency_prompt.py`
+- `create_react_agent_langchain.py`
+- `workflow_agent_langgraph.py`
+- `chaining_langchain-generate_knowledge.py`
+
+Semua file ini merupakan eksperimen penggunaan LangChain, prompt design, dan workflow agent.
+
+## Library yang dibutuhkan
+
+Dependency yang digunakan oleh proyek ini antara lain:
+
+```bash
+python-dotenv
+openai
+numpy
+chromadb
+typesense
+langchain
+langchain-core
+langchain-openai
+langgraph
+pydantic
+typing-extensions
+```
+
+Jika Anda ingin menjalankan notebook, biasanya juga diperlukan:
+
+```bash
+jupyter
+ipykernel
+```
+
+## Persyaratan sistem
+
+- Python 3.9 atau lebih baru
+- Internet untuk mengakses OpenRouter
+- Docker (opsional, jika ingin menjalankan Typesense lokal)
+- Akses ke API key OpenRouter
+
+## Instalasi
+
+### 1. Buat virtual environment
+
+Windows PowerShell:
 
 ```powershell
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 ```
 
-The repository may also contain an existing local environment named `production_rag`. If you use it instead:
+Linux/macOS:
+
+```bash
+python -m venv .venv
+source .venv/bin/activate
+```
+
+Jika Anda ingin menggunakan environment yang sudah ada di repo, bisa juga:
 
 ```powershell
 .\production_rag\Scripts\Activate.ps1
 ```
 
-Install the required packages:
+### 2. Upgrade pip
 
 ```bash
 python -m pip install --upgrade pip
-python -m pip install openai python-dotenv numpy chromadb
 ```
 
-## Configuration
+### 3. Install library yang dibutuhkan
 
-Create a `.env` file in the project root:
+Instal semua dependency utama yang dipakai oleh project ini:
+
+```bash
+python -m pip install python-dotenv openai numpy chromadb typesense langchain langchain-core langchain-openai langgraph pydantic typing-extensions
+```
+
+Jika ingin juga menjalankan notebook:
+
+```bash
+python -m pip install jupyter ipykernel
+```
+
+## Konfigurasi environment
+
+Buat file `.env` di root project dan isi seperti berikut:
 
 ```env
 OPENROUTER_API_KEY=your_openrouter_api_key
+OPENROUTER_BASE_URL=https://openrouter.ai/api/v1
+OPENROUTER_MODEL=inclusionai/ling-3.0-flash-fin:free
+
+TYPESENSE_HOST=localhost
+TYPESENSE_PORT=8108
+TYPESENSE_PROTOCOL=http
+TYPESENSE_API_KEY=xyz
 ```
 
-Do not commit the API key or share the `.env` file. The application reads this value with `python-dotenv` and sends requests to:
+Catatan:
 
-```text
-https://openrouter.ai/api/v1
-```
+- `OPENROUTER_API_KEY` wajib diisi agar script dapat akses model OpenRouter.
+- `OPENROUTER_BASE_URL` biasanya default ke `https://openrouter.ai/api/v1`.
+- `TYPESENSE_API_KEY` perlu sesuai dengan server Typesense Anda.
 
-## Run the Chatbot
+Jangan commit file `.env` ke repository publik. Simpan secara lokal saja.
 
-Run the script from the project root:
+## Menjalankan Typesense lokal
+
+Beberapa script menggunakan Typesense. Jika Anda ingin menjalankannya secara lokal via Docker, gunakan perintah berikut:
 
 ```bash
-python production_RAG.py
+docker run -d \
+  --name typesense \
+  -p 8108:8108 \
+  -v $(pwd)/typesense-data:/data \
+  typesense/typesense:29.0 \
+  --data-dir /data \
+  --api-key=xyz \
+  --enable-cors
 ```
 
-On Windows, you can explicitly use the project virtual environment:
+Periksa apakah service berjalan:
 
-```powershell
-.\production_rag\Scripts\python.exe .\production_RAG.py
+```bash
+curl http://localhost:8108/health
 ```
 
-Ask questions in Indonesian, for example:
+## Menjalankan project
 
-```text
-You: tolong sebutkan semua berkas persyaratannya
+### RAG dengan ChromaDB
+
+```bash
+python rag_chromadb.py
 ```
 
-Type `exit` or submit an empty input to stop the chatbot.
+### RAG dengan Typesense + LangChain
 
-## How It Works
-
-1. The application opens or creates the persistent ChromaDB database at `./chroma_db`.
-2. It opens the `knowledge_base` collection with a custom OpenRouter embedding function.
-3. If the collection is empty, every `.txt` file in `knowledge_base/` is read, chunked, embedded, and stored in batches of 20.
-4. Each Indonesian user question is sent to the chat model for clarification and English translation to improve semantic retrieval.
-5. ChromaDB searches the stored vectors and returns up to three relevant chunks.
-6. The original Indonesian conversation history, the translated query, and the retrieved context are sent to the chat model.
-7. The chatbot returns an answer based on the supplied context and keeps a compact history for the next turn.
-
-## Models
-
-The current implementation uses these OpenRouter models:
-
-- **Embeddings:** `nvidia/nemotron-3-embed-1b:free`
-- **Question enhancement and answer generation:** `nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free`
-
-These model identifiers are configured directly in `production_RAG.py` and may need to be updated if OpenRouter changes availability or routing.
-
-## Project Structure
-
-```text
-.
-|-- production_RAG.py
-|-- knowledge_base/
-|   `-- PANDUAN_TUGAS_AKHIR_DAN_YUDISIUM_2026.txt
-|-- chroma_db/
-|   `-- Persistent ChromaDB data generated by the application
-|-- .env
-|-- .gitignore
-|-- LICENSE
-`-- README.md
+```bash
+python rag_typesense_langchain.py
 ```
 
-The `production_rag/` directory is a local Python virtual environment and is excluded from version control. Python cache files are also generated locally and are not part of the application source.
+### Hospital agent dengan LangGraph
 
-## Knowledge Base Updates
+```bash
+python small_project.py
+```
 
-To add or replace source material:
+### Script eksperimen lainnya
 
-1. Put UTF-8 encoded `.txt` files in `knowledge_base/`.
-2. Remove or recreate the existing `chroma_db/` data if the collection must be rebuilt from scratch.
-3. Run the application again.
+```bash
+python chaining_langchain-generate_knowledge.py
+python create_agent_langchain-self_consistency_prompt.py
+python create_react_agent_langchain.py
+python workflow_agent_langgraph.py
+```
 
-The current script only indexes documents automatically when the collection contains zero chunks. Existing documents are not automatically synchronized or deduplicated on every run.
+## Cara kerja umum
 
-The default chunk configuration is:
+1. Dokumen sumber dibaca dari `knowledge_base/` atau file JSON tertentu.
+2. Teks dipotong menjadi chunk dengan overlap tertentu.
+3. Chunk dikirim ke model embedding OpenRouter.
+4. Vektor disimpan di ChromaDB atau Typesense.
+5. User query diproses dan dibandingkan dengan konteks yang tersimpan.
+6. Model LLM mengambil chunk yang relevan lalu menghasilkan jawaban berdasarkan konteks tersebut.
+7. Beberapa script juga menggunakan LangGraph untuk mengelola alur tool-calling dan workflow multi-step.
 
-- Chunk size: 800 characters
-- Overlap: 150 characters
-- Insertion batch size: 20 chunks
-- Retrieval count: up to 3 chunks
+## Data yang dipakai
 
-## Troubleshooting
+- `knowledge_base/PANDUAN_TUGAS_AKHIR_DAN_YUDISIUM_2026.txt`
+- `hospitals_prod.json`
+- `faqs_extend_no_split.jsonl`
 
-### `OPENROUTER_API_KEY` is missing
+Data ini digunakan untuk eksperimen RAG, indexing, dan real-world search task.
 
-Verify that `.env` is located beside `production_RAG.py`, uses the exact variable name, and is loaded before running the script.
+## Catatan penting
 
-### The chatbot reports an empty or invalid OpenRouter response
+- Beberapa script menggunakan OpenRouter model gratis dan bisa berubah sewaktu-waktu.
+- Jika model tidak tersedia, mungkin perlu mengganti value `OPENROUTER_MODEL` atau model di script.
+- `chroma_db/` dan `typesense-data/` adalah folder data lokal, biasanya dibuat otomatis saat aplikasi berjalan.
+- Format `knowledge_base` bersifat plain text, sehingga Anda dapat menambahkan file `.txt` baru sesuai kebutuhan.
 
-Check the API key, network connection, model availability, and OpenRouter provider status. The application validates missing choices and empty answer content and reports these conditions instead of indexing them blindly.
+## Troubleshooting umum
 
-### The collection uses a different embedding function
+### `OPENROUTER_API_KEY` tidak ditemukan
+Pastikan `.env` sudah dibuat di root project dan nama variabel sesuai.
 
-The script detects a collection configuration mismatch, deletes the existing `knowledge_base` collection, and recreates it with the configured OpenRouter embedding function. Re-indexing may require API requests for all source chunks.
+### `Typesense` tidak terhubung
+Periksa apakah server Typesense sudah aktif di localhost:8108 dan API key sesuai.
 
-### Answers are not grounded in the documents
+### `Collection` atau database kosong
+Jalankan script yang bersangkutan sekali lagi agar indexing otomatis terjadi.
 
-Confirm that the relevant information exists in `knowledge_base/`, then rebuild `chroma_db/` so the latest source content is embedded. The chatbot is instructed not to invent information outside the retrieved context, but response quality still depends on retrieval and model availability.
+### `Model` tidak tersedia / 403 / 429
+Coba ganti model ke model OpenRouter lain yang masih aktif, atau cek status API OpenRouter.
 
-## Privacy and Data Handling
+## Lisensi
 
-User questions and retrieved document context are sent to OpenRouter for question enhancement and answer generation. Do not place confidential personal data in the knowledge base or chat input unless your organization has approved the provider and data flow.
-
-## License
-
-This project is distributed under the Apache License 2.0. See [LICENSE](LICENSE) for the full license text.
+Proyek ini menggunakan lisensi Apache License 2.0. Lihat file [LICENSE](LICENSE) untuk detail lengkap.
