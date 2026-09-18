@@ -30,7 +30,7 @@ base_url = os.getenv(
 ).rstrip("/")
 
 model = ChatOpenAI(
-    model=os.getenv("OPENROUTER_MODEL", "inclusionai/ling-3.0-flash-fin:free"),
+    model=os.getenv("OPENROUTER_MODEL", "stealth/union-alpha"),
     api_key=api_key,
     base_url=base_url,
     temperature=0.0,
@@ -52,6 +52,19 @@ typesense_client = typesense.Client(
     }
 )
 
+DEFAULT_SEARCH_PARAMS = {
+    "query_by": "hospital,alias,address,district,city,province,slug",
+    "prefix": True,
+    "infix": "always",
+    "num_typos": 2,
+    "min_len_1typo": 4,
+    "min_len_2typo": 7,
+    "typo_tokens_threshold": 1,
+    "drop_tokens_threshold": 1,
+    "split_join_tokens": "fallback",
+    "per_page": 5,
+}
+
 
 class HospitalSearchInput(BaseModel):
     query: str = Field(
@@ -64,24 +77,38 @@ def get_or_create_collection():
     schema = {
         "name": COLLECTION_NAME,
         "fields": [
-            {"name": "hospital", "type": "string"},
-            {"name": "alias", "type": "string"},
-            {"name": "address", "type": "string"},
-            {"name": "district", "type": "string"},
-            {"name": "city", "type": "string"},
-            {"name": "province", "type": "string"},
-            {"name": "slug", "type": "string"},
+            {"name": "hospital", "type": "string", "infix": True},
+            {"name": "alias", "type": "string", "infix": True},
+            {"name": "address", "type": "string", "infix": True},
+            {"name": "district", "type": "string", "infix": True},
+            {"name": "city", "type": "string", "infix": True},
+            {"name": "province", "type": "string", "infix": True},
+            {"name": "slug", "type": "string", "infix": True},
             {"name": "latitude", "type": "float"},
             {"name": "longitude", "type": "float"},
         ],
     }
 
     try:
-        typesense_client.collections[COLLECTION_NAME].retrieve()
+        collection = typesense_client.collections[COLLECTION_NAME].retrieve()
+        existing_fields = {field["name"]: field for field in collection["fields"]}
+        needs_rebuild = False
+        for field_name in ["hospital", "alias", "address", "district", "city", "province", "slug"]:
+            field = existing_fields.get(field_name)
+            if not field or field.get("infix") is not True:
+                needs_rebuild = True
+                break
+
+        if needs_rebuild:
+            print(f"[DEBUG] Rebuilding collection {COLLECTION_NAME} to enable infix search for typo-tolerance testing.")
+            typesense_client.collections[COLLECTION_NAME].delete()
+            typesense_client.collections.create(schema)
+            return typesense_client.collections[COLLECTION_NAME]
+
+        return collection
     except typesense.exceptions.ObjectNotFound:
         typesense_client.collections.create(schema)
-
-    return typesense_client.collections[COLLECTION_NAME]
+        return typesense_client.collections[COLLECTION_NAME]
 
 
 def load_hospitals():
@@ -125,20 +152,65 @@ def index_hospitals(collection):
     print(f"Berhasil mengindeks {len(documents)} rumah sakit.")
 
 
+def build_hospital_search_params(query: str, overrides: Dict[str, Any] | None = None) -> Dict[str, Any]:
+    params = {
+        "q": query,
+        **DEFAULT_SEARCH_PARAMS,
+    }
+    if overrides:
+        params.update(overrides)
+    return params
+
+
+def search_hospital_collection(collection, query: str, overrides: Dict[str, Any] | None = None):
+    params = build_hospital_search_params(query, overrides)
+    print(f"[DEBUG] Search params: {params}")
+    result = collection.documents.search(params)
+    hits = [hit["document"] for hit in result["hits"]]
+    print(f"[DEBUG] Found {len(hits)} hit(s) for query: {query!r}")
+    return hits
+
+
 @tool(args_schema=HospitalSearchInput)
 def search_hospital(query: str) -> Dict[str, Any]:
-    """Mencari informasi rumah sakit berdasarkan nama atau lokasi."""
+    """Mencari informasi rumah sakit berdasarkan nama atau lokasi dengan typo tolerance yang aman."""
     collection = get_or_create_collection()
-    results = collection.documents.search(
-        {
-            "q": query,
-            "query_by": "hospital,alias,address,district,city,province,slug",
-            "per_page": 5,
-        }
-    )
-
-    hospitals = [hit["document"] for hit in results["hits"]]
+    hospitals = search_hospital_collection(collection, query)
     return {"status": "success", "count": len(hospitals), "data": hospitals}
+
+
+def debug_hospital_search(query: str):
+    collection = get_or_create_collection()
+    scenarios = {
+        "default": {},
+        "anti_typo": {
+            "num_typos": 2,
+            "min_len_1typo": 4,
+            "min_len_2typo": 7,
+            "prefix": True,
+            "infix": "always",
+            "split_join_tokens": "always",
+        },
+        "strict": {
+            "num_typos": 0,
+            "prefix": False,
+            "infix": "off",
+            "split_join_tokens": "off",
+        },
+        "lenient_prefix": {
+            "num_typos": 2,
+            "min_len_1typo": 3,
+            "min_len_2typo": 5,
+            "prefix": True,
+            "infix": "fallback",
+        },
+    }
+
+    for label, overrides in scenarios.items():
+        hits = search_hospital_collection(collection, query, overrides)
+        print(f"\n=== {label.upper()} ===")
+        for hit in hits[:3]:
+            print(hit)
 
 
 tools = [search_hospital]

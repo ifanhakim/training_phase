@@ -58,7 +58,7 @@ class OpenRouterEmbeddings(Embeddings):
 embeddings = OpenRouterEmbeddings()
 
 model = ChatOpenAI(
-    model=os.getenv("OPENROUTER_MODEL", "inclusionai/ling-3.0-flash-fin:free"),
+    model=os.getenv("OPENROUTER_MODEL", "stealth/union-alpha"),
     api_key=OPENROUTER_API_KEY,
     base_url=OPENROUTER_BASE_URL,
     temperature=0.5,
@@ -118,24 +118,33 @@ def count_documents(collection):
 
 def index_faqs(collection):
     faqs = load_faqs()
-    questions = [faq["prompt"] for faq in faqs]
-    vectors = embeddings.embed_documents(questions)
-
+    batch_size = 128
+    total_indexed = 0
     documents = []
-    for index, (faq, vector) in enumerate(zip(faqs, vectors)):
-        documents.append(
-            {
-                "id": f"faq_agent_{index}",
-                "question": faq["prompt"],
-                "answer": faq["completion"],
-                "embedding": vector,
-            }
-        )
 
-    typesense_client.collections[COLLECTION_NAME].documents.import_(
-        documents, {"action": "upsert"}
-    )
-    print(f"Berhasil mengindeks {len(documents)} FAQ ke {COLLECTION_NAME}.")
+    for start in range(0, len(faqs), batch_size):
+        batch = faqs[start:start + batch_size]
+        questions = [faq["prompt"] for faq in batch]
+        vectors = embeddings.embed_documents(questions)
+
+        for index_in_batch, (faq, vector) in enumerate(zip(batch, vectors)):
+            documents.append(
+                {
+                    "id": f"faq_agent_{start + index_in_batch}",
+                    "question": faq["prompt"],
+                    "answer": faq["completion"],
+                    "embedding": vector,
+                }
+            )
+
+        typesense_client.collections[COLLECTION_NAME].documents.import_(
+            documents, {"action": "upsert"}
+        )
+        total_indexed += len(batch)
+        print(f"Index batch {start + 1} - {start + len(batch)}: {len(batch)} FAQ berhasil diproses.")
+        documents.clear()
+
+    print(f"Berhasil mengindeks {total_indexed} FAQ ke {COLLECTION_NAME}.")
 
 
 query_prompt = ChatPromptTemplate.from_template(

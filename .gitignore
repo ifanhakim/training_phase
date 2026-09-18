@@ -6,3 +6,4 @@ hospitals_prod.json
 /production_rag
 /chroma_db
 /typesense-data
+/data_icd_lab_rad

@@ -58,7 +58,7 @@ class OpenRouterEmbeddings(Embeddings):
 embeddings = OpenRouterEmbeddings()
 
 model = ChatOpenAI(
-    model=os.getenv("OPENROUTER_MODEL", "inclusionai/ling-3.0-flash-fin:free"),
+    model=os.getenv("OPENROUTER_MODEL", "stealth/union-alpha"),
     api_key=OPENROUTER_API_KEY,
     base_url=OPENROUTER_BASE_URL,
     temperature=0.5,
@@ -203,7 +203,7 @@ def search_faq(question: str) -> str:
     )
 
 
-# Perbedaan utama: memakai create_react_agent dari LangGraph.
+# create_react_agent dari LangGraph.
 agent = create_react_agent(
     model=model,
     tools=[search_faq],
